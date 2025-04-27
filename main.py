@@ -22,7 +22,7 @@ INDEX_TO_ETF = {
 # CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://your-project.pages.dev"],  # Update with Cloudflare Pages URL
+    allow_origins=["http://localhost:5173", "https://financecalculate.com"],  # Update with Cloudflare Pages URL
     allow_methods=["GET"],
     allow_headers=["*"],
 )
