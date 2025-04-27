@@ -6,9 +6,8 @@ from datetime import datetime
 import requests
 import time
 import os
-API_KEY = os.getenv("FINNHUB_API_KEY", "your_finnhub_api_key")  # Fallback for local testing
+API_KEY = os.getenv("FINNHUB_API_KEY")  # Fallback for local testing
 app = FastAPI(title="Stock Price API")
-API_KEY = "d06lpapr01qg26s8oragd06lpapr01qg26s8orb0"  # Replace with your Finnhub API key
 BASE_URL = "https://finnhub.io/api/v1/quote"
 
 # Map index tickers to ETF proxies
