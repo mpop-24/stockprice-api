@@ -6,11 +6,11 @@ from datetime import datetime
 import requests
 import time
 import os
-API_KEY = os.getenv("FINNHUB_API_KEY")  # Fallback for local testing
+
 app = FastAPI(title="Stock Price API")
+API_KEY = os.getenv("FINNHUB_API_KEY", "your_finnhub_api_key")
 BASE_URL = "https://finnhub.io/api/v1/quote"
 
-# Map index tickers to ETF proxies
 INDEX_TO_ETF = {
     "^DJI": "DIA",
     "^GSPC": "SPY",
@@ -18,22 +18,20 @@ INDEX_TO_ETF = {
     "^RUT": "IWM"
 }
 
-# CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://financecalculate.com"],  # Update with Cloudflare Pages URL
+    allow_origins=["http://localhost:5173", "https://your-project.pages.dev"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
 
-# In-memory storage for last prices (used for price change)
 last_prices: Dict[str, float] = {}
 
-# Response model
 class TickerData(BaseModel):
     ticker: str
     current_price: float
-    price_change: str | None  # "up", "down", "flat", or null
+    price_change: str | None
+    percentage_change: float | None  # New field for percentage change
     timestamp: str
 
 @app.get("/tickers/{tickers}", response_model=List[TickerData])
@@ -44,49 +42,51 @@ async def get_tickers_data(tickers: str):
         failed_tickers = []
 
         for ticker in ticker_list:
-            # Skip AAPL
             if ticker == "AAPL":
                 failed_tickers.append(ticker)
                 continue
 
-            # Map index to ETF, or use ticker directly if not an index
             symbol = INDEX_TO_ETF.get(ticker, ticker)
 
-            for attempt in range(3):  # Retry up to 3 times for rate limits
+            for attempt in range(3):
                 try:
                     url = f"{BASE_URL}?symbol={symbol}&token={API_KEY}"
                     response = requests.get(url).json()
-                    price = response.get("c") or response.get("pc")  # Current or previous close
+                    price = response.get("c") or response.get("pc")
                     if price is None or price == 0:
                         failed_tickers.append(ticker)
                         break
 
-                    # Calculate price change
                     price_change = None
+                    percentage_change = None
                     if ticker in last_prices:
                         previous_price = last_prices[ticker]
-                        if price > previous_price:
-                            price_change = "up"  # Price increased
-                        elif price < previous_price:
-                            price_change = "down"  # Price decreased
+                        if previous_price != 0:
+                            percentage_change = ((price - previous_price) / previous_price) * 100
+                            if price > previous_price:
+                                price_change = "up"
+                            elif price < previous_price:
+                                price_change = "down"
+                            else:
+                                price_change = "flat"
                         else:
-                            price_change = "flat"  # Price unchanged
+                            percentage_change = 0  # Avoid division by zero
 
-                    # Update last price for next comparison
                     last_prices[ticker] = price
 
                     results.append({
-                        "ticker": ticker,  # Return index ticker, not ETF
+                        "ticker": ticker,
                         "current_price": price,
                         "price_change": price_change,
+                        "percentage_change": round(percentage_change, 2) if percentage_change is not None else None,
                         "timestamp": datetime.now().isoformat()
                     })
-                    time.sleep(1)  # Respect rate limits (60 requests/minute)
+                    time.sleep(1)
                     break
                 except Exception as e:
-                    if "429" in str(e) or "Too Many Requests" in str(e):  # Handle rate limit
+                    if "429" in str(e) or "Too Many Requests" in str(e):
                         if attempt < 2:
-                            time.sleep(5 * (2 ** attempt))  # Backoff: 5s, 10s
+                            time.sleep(5 * (2 ** attempt))
                             continue
                         failed_tickers.append(ticker)
                     else:
