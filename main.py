@@ -20,7 +20,7 @@ INDEX_TO_ETF = {
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://your-project.pages.dev"],
+    allow_origins=["http://localhost:5173", "https://financecalculate.com"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
